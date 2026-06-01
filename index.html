@@ -355,20 +355,25 @@
 </head>
 
 <body>
-  <!-- Autoplay music — add your file name here -->
-  <audio id="bgMusic" loop>
-    <source src="./music.mp3" type="audio/mpeg">
-  </audio>
-
-  <!-- Small toggle button -->
-  <button onclick="toggleMusic()" id="musicBtn" style="
+<!-- Small toggle button -->
+<a href="https://www.youtube.com/watch?v=KtlgYxa6BMU" target="_blank" id="musicBtn" style="
   position: fixed; bottom: 20px; right: 20px;
   background: #C75C6F; color: white; border: none;
   border-radius: 50%; width: 44px; height: 44px;
   font-size: 18px; cursor: pointer;
   box-shadow: 0 4px 12px rgba(199,92,111,0.35);
   z-index: 999;
-">🎵</button>
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none;
+" title="Copyright ki wajah se music yahan nahi chal sakti 🙂 YouTube pe suno">🎵</a>
+
+<p style="
+  position: fixed; bottom: 68px; right: 10px;
+  font-size: 10px; color: #C75C6F; opacity: 0.7;
+  text-align: center; max-width: 60px;
+  font-family: 'DM Sans', sans-serif;
+">Copyright youtube pr sun le</p>
+
   <div class="card">
 
     <!-- Her photo — click to upload -->
@@ -386,7 +391,7 @@
     <h1>Hey,<br /><em>Rashida</em></h1>
 
     <p class="prose">
-      tolerating all your Nakhras and moodswings (Not complaning though)<br />
+     After tolerating all your Nakhras and moodswings (Not complaning though)<br />
     </p>
 
     <p class="prose" style="margin-top:16px;">
@@ -439,28 +444,7 @@
   </div>
 
   <script>
-  const music = document.getElementById('bgMusic');
-  const btn = document.getElementById('musicBtn');
 
-  // Auto-trigger music button on page load
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      music.play().catch(() => {
-        // Browser blocked autoplay — user will need to tap button manually
-        btn.textContent = '🎵';
-      });
-    }, 500);
-  });
-
-  function toggleMusic() {
-    if (music.paused) {
-      music.play();
-      btn.textContent = '🎵';
-    } else {
-      music.pause();
-      btn.textContent = '🔇';
-    }
-  }
 
   function respond(choice) {
     const rEmoji = document.getElementById('rEmoji');
