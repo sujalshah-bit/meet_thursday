@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A Formal Request 🌸</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #C75C6F;
+      --secondary: #E8B4BC;
+      --accent: #D4A373;
+      --bg: #FFF8F0;
+      --text: #2B2D42;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% 10%, rgba(199, 92, 111, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 85% 85%, rgba(212, 163, 115, 0.07) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: #fff;
+      border-radius: 28px;
+      max-width: 460px;
+      width: 100%;
+      padding: 42px 38px 46px;
+      box-shadow: 0 4px 32px rgba(199, 92, 111, 0.10), 0 1px 4px rgba(43, 45, 66, 0.05);
+      border: 1.5px solid rgba(232, 180, 188, 0.35);
+      animation: rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(28px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ---- Photo ---- */
+    .photo-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+
+    .photo-ring-wrap {
+      position: relative;
+      width: 108px;
+      height: 108px;
+    }
+
+    .photo-ring {
+      position: absolute;
+      inset: -5px;
+      border-radius: 50%;
+      border: 2px dashed var(--accent);
+      animation: spin 14s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .photo-frame {
+      width: 108px;
+      height: 108px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--secondary), var(--primary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #fff;
+      font-weight: 500;
+      text-align: center;
+      padding: 10px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(199, 92, 111, 0.22);
+    }
+
+    .photo-frame input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .photo-frame img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .photo-hint {
+      pointer-events: none;
+      z-index: 1;
+      line-height: 1.5;
+    }
+
+    /* ---- Typography ---- */
+    .eyebrow {
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.75rem, 6vw, 2.1rem);
+      font-weight: 700;
+      color: var(--primary);
+      text-align: center;
+      line-height: 1.2;
+      margin-bottom: 28px;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .prose {
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .prose+.prose {
+      margin-top: 14px;
+    }
+
+    .prose .bold {
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .prose .soft {
+      color: #888;
+      font-size: 13px;
+    }
+
+    /* ---- Dog image slot ---- */
+    .dog-slot {
+      display: flex;
+      justify-content: center;
+      margin: 18px 0 6px;
+    }
+
+    .dog-slot img {
+      width: 200px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 14px;
+      box-shadow: 0 3px 10px rgba(199, 92, 111, 0.15);
+    }
+
+    .dog-emoji {
+      font-size: 52px;
+      line-height: 1;
+      filter: drop-shadow(0 2px 5px rgba(199, 92, 111, 0.15));
+      /* replace this span with <img> for a real dog photo */
+    }
+
+    /* ---- Divider ---- */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 24px 0;
+      opacity: 0.4;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--secondary);
+    }
+
+    .divider span {
+      font-size: 14px;
+    }
+
+    /* ---- Democracy box ---- */
+    .democracy-box {
+      background: linear-gradient(135deg, rgba(232, 180, 188, 0.15), rgba(212, 163, 115, 0.1));
+      border: 1px solid rgba(199, 92, 111, 0.18);
+      border-radius: 16px;
+      padding: 18px 20px 14px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .democracy-box .title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+
+    /* ---- Buttons ---- */
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .buttons .sub {
+      font-size: 17.5px;
+      color: #999;
+      line-height: 1.5;
+      display: flex;
+      justify-content: center;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 15px 20px;
+      border-radius: 14px;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 0.16s, box-shadow 0.16s;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-yes {
+      background: linear-gradient(135deg, var(--primary), #a8404f);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(199, 92, 111, 0.32);
+    }
+
+    .btn-yes:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(199, 92, 111, 0.38);
+    }
+
+    .btn-duh {
+      background: #fff;
+      color: var(--primary);
+      border: 1.5px solid var(--secondary);
+    }
+
+    .btn-duh:hover {
+      transform: translateY(-2px);
+      background: #fef5f6;
+    }
+
+    /* ---- Response ---- */
+    .response {
+      display: none;
+      text-align: center;
+      padding: 16px 0 4px;
+      animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .response .r-emoji {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+
+    .response p {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-style: italic;
+      color: var(--primary);
+      line-height: 1.5;
+    }
+
+    /* ---- Footer ---- */
+    .footer {
+      margin-top: 26px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--accent);
+      opacity: 0.6;
+      letter-spacing: 0.06em;
+    }
+
+    #kya_likhu {
+      width: 50px;
+      height: 50px;
+    }
+
+    .response-gif {
+      width: 120px;
+      /* adjust to taste */
+      height: 120px;
+      object-fit: cover;
+      border-radius: 14px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 400px) {
+      .card {
+        padding: 30px 22px 36px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Autoplay music — add your file name here -->
+  <audio id="bgMusic" loop>
+    <source src="./music.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- Small toggle button -->
+  <button onclick="toggleMusic()" id="musicBtn" style="
+  position: fixed; bottom: 20px; right: 20px;
+  background: #C75C6F; color: white; border: none;
+  border-radius: 50%; width: 44px; height: 44px;
+  font-size: 18px; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(199,92,111,0.35);
+  z-index: 999;
+">🎵</button>
+  <div class="card">
+
+    <!-- Her photo — click to upload -->
+    <div class="photo-wrapper">
+      <div class="photo-ring-wrap">
+        <!-- <div class="photo-ring"></div> -->
+        <div class="photo-frame" id="photoFrame" title=".">
+          <img src="./school_photo.png" alt="Sorry mere pass koi aur photo tha nahi apka">
+        </div>
+      </div>
+    </div>
+
+
+
+    <h1>Hey,<br /><em>Rashida</em></h1>
+
+    <p class="prose">
+      tolerating all your Nakhras and moodswings (Not complaning though)<br />
+    </p>
+
+    <p class="prose" style="margin-top:16px;">
+      I have decided a good place where we can meet. Just show up <span class="bold">look pretty, which honestly won't
+        be hard for you.</span>
+    </p>
+
+    <p class="prose" style="margin-top:16px;">
+      So — <span class="bold">Thursday. <a target="_blank"
+          href="https://www.google.com/local/place/fid/0x3bd833000deed8b1:0x947d08246286f85f/photosphere?iu=https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid%3D7rlBOm9zB1Wn3z1f7qZ6Zw%26cb_client%3Dsearch.gws-prod.gps%26yaw%3D349.02777%26pitch%3D0%26thumbfov%3D100%26w%3D0%26h%3D0&ik=CAISFjdybEJPbTl6QjFXbjN6MWY3cVo2Wnc%3D&sa=X&ved=2ahUKEwi_uMeG_uaUAxVgRmwGHYj4GoAQpx96BAgZEAQ">At,
+          browletto</a></span><br />
+    </p>
+
+    <!-- 🐶 Cute shy doggie — swap emoji below with <img src="dog.jpg"> for a real photo -->
+    <div class="dog-slot">
+      <!-- <span class="dog-emoji"></span> -->
+      <img src="./blushing_cheems.jpg">
+    </div>
+
+    <p class="prose" style="margin-top:4px;">
+      <span class="soft">(That's me, waiting. Please don't make it weird.)</span>
+    </p>
+
+    <div class="divider"><span>✦</span></div>
+
+    <div class="democracy-box">
+      <p class="prose" style="margin-top:16px;">
+        Aree I forgot to ask Will you come to meet ?</span>
+      </p>
+      <div class="title">I believe in democracy. I should first ask your choice. Ohh you can't write your choice. I will
+        make it easy for you, choose either of the option below. <span id="kya_likhu">🥰</span></div>
+    </div>
+
+    <div class="buttons" id="btnGroup">
+      <button class="btn btn-yes" onclick="respond('yes')">
+        ✅ &nbsp;Yes, I'll be there
+      </button>
+      <div class="sub">
+        Fuck democracy.<br />
+      </div>
+      <button class="btn btn-duh" onclick="respond('duh')">
+        &nbsp;Of course, aaungi !!!
+      </button>
+    </div>
+
+    <div class="response" id="responseBox">
+      <div class="r-emoji" id="rEmoji"></div>
+      <p id="rMsg"></p>
+    </div>
+  </div>
+
+  <script>
+  const music = document.getElementById('bgMusic');
+  const btn = document.getElementById('musicBtn');
+
+  // Auto-trigger music button on page load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      music.play().catch(() => {
+        // Browser blocked autoplay — user will need to tap button manually
+        btn.textContent = '🎵';
+      });
+    }, 500);
+  });
+
+  function toggleMusic() {
+    if (music.paused) {
+      music.play();
+      btn.textContent = '🎵';
+    } else {
+      music.pause();
+      btn.textContent = '🔇';
+    }
+  }
+
+  function respond(choice) {
+    const rEmoji = document.getElementById('rEmoji');
+    const rMsg   = document.getElementById('rMsg');
+    const btns   = document.getElementById('btnGroup');
+    const box    = document.getElementById('responseBox');
+
+    if (choice === 'yes') {
+      rEmoji.innerHTML = '<img src="./dancing_dogesh.gif" class="response-gif">';
+      rMsg.textContent = "See? Was that so hard? Thursday it is. Don't be late.";
+    } else {
+      rEmoji.innerHTML = '<img src="./dancing_dogesh.gif" class="response-gif">';
+      rMsg.textContent = "Obviously. I knew it. The choice was just courtesy.";
+    }
+
+    btns.style.transition = 'opacity 0.25s';
+    btns.style.opacity = '0';
+    setTimeout(() => {
+      btns.style.display = 'none';
+      box.style.display = 'block';
+    }, 260);
+  }
+</script>
+</body>
+
+</html>
