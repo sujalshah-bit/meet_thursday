@@ -5,18 +5,19 @@
 
 ## 1. Summary
 
-Today, `Starlark` does not really behave like the other resolvers. It has its
-own field on `FamilyType`, its own code path in `buildMetricString`, and its
-own copy of the label/sample-writing logic. On top of that, the `Resolver`
-interface can only return flat `map[string]string]` data, so anything that
-isn't a single string value (a list, a set of samples) has to be smuggled
-through string tricks in the map keys.
+The current `Resolver` interface has two kinds of problems: (1) it can only
+return flat `map[string]string` data, so lists and multi-sample output get
+smuggled through string tricks in map keys, and sanitization rules live
+outside the interface as an unwritten convention; and (2) Starlark doesn't
+fit the interface at all, so it's bolted on as a separate struct field with
+its own duplicated code path instead of being a real resolver.
 
-This document lists the concrete problems with the current design, then
-proposes a new `Result` type plus a small `FamilyGenerator` interface that
-lets Starlark be a real resolver instead of a bolted-on special case, without
-losing type safety or forcing every resolver to answer questions that don't
-apply to it.
+This document proposes a `Result` type that returns data as what it actually
+is (scalar, list, or map) instead of encoding it into strings, plus a small
+`FamilyGenerator` interface that lets Starlark — and any future
+whole-family-at-once resolver — plug into the same dispatch and the same
+sample-writing code as everyone else, instead of needing its own branch and
+its own copy of the logic.
 
 ## 2. Problems with the current design
 
@@ -263,7 +264,225 @@ exist today (`family.go`'s `sanitizeKey` using `strcase.ToSnake`, and
 `cel.go`'s `metricutil.SanitizeLabelKey` used inside `labelPrefixBinding`) —
 one function, in the shared `metricutil` package, used everywhere.
 
-## 4. How this solves each problem
+## 4. `family.go` before vs. after
+
+### 4.1 The `FamilyType` struct
+
+**Before** — a special field just for Starlark:
+
+```go
+type FamilyType struct {
+    v1alpha1.Family
+    logger              klog.Logger
+    celCostLimit        uint64
+    celTimeout          time.Duration
+    celEvaluations      *prometheus.CounterVec
+    managedRMMNamespace string
+    managedRMMName      string
+    createdAt           time.Time
+    cutoff              atomic.Bool
+    starlarkResolver    *resolver.StarlarkResolver // <-- special case
+}
+```
+
+**After** — the field is gone. Starlark is just another resolver the
+factory can build:
+
+```go
+type FamilyType struct {
+    v1alpha1.Family
+    logger              klog.Logger
+    celCostLimit        uint64
+    celTimeout          time.Duration
+    celEvaluations      *prometheus.CounterVec
+    managedRMMNamespace string
+    managedRMMName      string
+    createdAt           time.Time
+    cutoff              atomic.Bool
+}
+```
+
+### 4.2 The resolver factory
+
+**Before** — Starlark is explicitly refused:
+
+```go
+case v1alpha1.ResolverTypeStarlark:
+    return nil, fmt.Errorf("starlark resolver requires starlark config in family %q", f.Name)
+```
+
+**After** — Starlark is built like anything else:
+
+```go
+case v1alpha1.ResolverTypeStarlark:
+    return resolver.NewStarlarkResolver(f.logger, f.StarlarkConfig), nil
+```
+
+### 4.3 `buildMetricString`
+
+**Before** — a top-level `switch` on a struct field decides which of two
+*entirely separate* code paths (one full loop each) to run:
+
+```go
+func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) (string, int64) {
+    var metricStr string
+    var sampleCount int64
+
+    switch {
+    case f.starlarkResolver != nil:
+        metricStr, sampleCount = f.buildMetricStringFromStarlark(unstructured)
+    default:
+        familyRawBuilder := getBuilder()
+        defer putBuilder(familyRawBuilder)
+
+        for i := range f.Metrics {
+            // ~30 lines: resolve labels, resolve value, write samples
+        }
+        metricStr = familyRawBuilder.String()
+    }
+    // cutoff handling...
+    return metricStr, sampleCount
+}
+
+// A second, separate ~40-line function exists ONLY for Starlark,
+// reimplementing sanitizeKey, sortLabels, and sample writing by hand.
+func (f *FamilyType) buildMetricStringFromStarlark(unstr *unstructured.Unstructured) (string, int64) {
+    ...
+}
+```
+
+**After** — one loop over metrics. Each metric's resolver is asked what it
+is; both kinds feed the *same* sample writer at the end:
+
+```go
+func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) (string, int64) {
+    logger := f.logger.WithValues("family", f.Name)
+
+    familyRawBuilder := getBuilder()
+    defer putBuilder(familyRawBuilder)
+
+    var sampleCount int64
+
+    for i := range f.Metrics {
+        metric := &f.Metrics[i]
+
+        resolverInstance, err := f.resolver(metric.Resolver)
+        if err != nil {
+            logger.V(1).Error(err, "skipping")
+            continue
+        }
+
+        var samples int64
+
+        switch r := resolverInstance.(type) {
+        case resolver.FamilyGenerator:
+            samples = f.writeGeneratedFamilies(familyRawBuilder, r, unstructured, logger)
+        case resolver.Resolver:
+            samples = f.writeResolvedMetric(familyRawBuilder, r, metric, unstructured, logger)
+        }
+
+        sampleCount += samples
+    }
+
+    if f.IsCutoff() {
+        logger.V(1).Info("Family is cut off due to cardinality limits, suppressing metric output")
+        return "", sampleCount
+    }
+
+    return familyRawBuilder.String(), sampleCount
+}
+```
+
+The old "generic path" body moves, unchanged, into `writeResolvedMetric`.
+The old Starlark-only function is replaced by a small adapter that reuses
+the *same* sample writer as everything else:
+
+```go
+// writeGeneratedFamilies converts FamilyGenerator output into the same
+// (keys, values, value) shape the generic path uses, then writes it with
+// the one shared writer — no separate sample-writing logic for Starlark.
+func (f *FamilyType) writeGeneratedFamilies(
+    builder *strings.Builder, r resolver.FamilyGenerator,
+    unstr *unstructured.Unstructured, logger klog.Logger,
+) int64 {
+    generated, err := r.GenerateFamilies(unstr.Object)
+    if err != nil {
+        logger.V(1).Error(err, "resolver generation failed")
+        return 0
+    }
+
+    var sampleCount int64
+
+    for _, genFamily := range generated {
+        for _, sample := range genFamily.Samples {
+            keys, values := labelMapToKeysValues(sample.Labels, r.IsKeySanitize())
+            sortLabels(keys, values)
+
+            value := strconv.FormatFloat(sample.Value, 'f', -1, 64)
+
+            n, err := writeMetricSamplesWithCount(
+                builder, f.Name, f.kind(), unstr, keys, values, nil, value, logger,
+            )
+            if err != nil {
+                continue
+            }
+            sampleCount += n
+        }
+    }
+
+    return sampleCount
+}
+```
+
+### 4.4 `resolveLabels` and `resolveMetricValue`
+
+**Before** — the caller has to guess "is this a list?" from key names, using
+a regex and a NUL-byte sentinel:
+
+```go
+resolvedLabelset := resolverInstance.Resolve(label.Value, obj)
+if val, ok := resolvedLabelset[label.Value]; ok {
+    // scalar
+} else {
+    // must be a list or map — figure it out from key suffixes
+    resolvedExpandedLabelSet[sanitizedName] = append(..., collectIndexedResolvedValues(resolvedLabelset)...)
+    for k, v := range resolvedLabelset {
+        if listIndexRegex.MatchString(k) {
+            continue
+        }
+        // ... map handling
+    }
+}
+```
+
+**After** — the resolver tells you what it returned; no guessing:
+
+```go
+result, err := resolverInstance.Resolve(label.Value, obj)
+if err != nil {
+    logger.V(1).Error(err, "skipping label")
+    continue
+}
+
+switch result.Kind() {
+case resolver.KindScalar:
+    resolvedLabelValues = append(resolvedLabelValues, result.Scalar())
+    resolvedLabelKeys = append(resolvedLabelKeys, sanitize(label.Name, resolverInstance))
+case resolver.KindList:
+    resolvedExpandedLabelSet[sanitize(label.Name, resolverInstance)] = result.List()
+case resolver.KindMap:
+    for k, v := range result.Map() {
+        resolvedLabelValues = append(resolvedLabelValues, v)
+        resolvedLabelKeys = append(resolvedLabelKeys, sanitize(k, resolverInstance))
+    }
+}
+```
+
+`listIndexRegex`, `collectIndexedResolvedValues`, and `expandedValueSentinel`
+are deleted — there's nothing left for them to do once `Result` carries its
+own shape.
+
+## 5. How this solves each problem
 
 **Problem 1 (Starlark isn't a real Resolver).** Starlark is no longer a
 special field checked with `!= nil`. It's a resolver that implements
@@ -298,7 +517,7 @@ resolver that needs different rules can simply return `false` and handle its
 own sanitization, instead of silently getting (or missing) rules baked into
 unrelated code.
 
-## 5. What doesn't change
+## 6. What doesn't change
 
 - CEL's and Unstructured's actual resolution logic is untouched — only their
   return type changes from `map[string]string` to `Result`.
@@ -307,7 +526,37 @@ unrelated code.
 - The public behavior of existing metrics (label names, sample output) is
   meant to be identical before and after this change.
 
-## 6. Open questions
+## 7. Shared logic lives in one place, once
+
+Some logic — key sanitization, sorting labels, formatting a float value —
+isn't really "resolver logic" or "family logic." It's used by both sides
+today, sometimes with two separate copies (e.g. `family.go`'s `sanitizeKey`
+vs. `cel.go`'s `labelPrefixBinding` calling its own version). Instead of
+each package rolling its own, this logic moves into the existing
+`pkg/metricutil` package as plain functions. Resolvers and `family.go` call
+into it if they need it — nobody is forced to, but nobody has to reimplement
+it either.
+
+```go
+// pkg/metricutil/labels.go
+package metricutil
+
+func SanitizeKey(s string) string {
+    return strcase.ToSnake(nonWordRegex.ReplaceAllString(s, "_"))
+}
+
+func SortLabels(keys []string, parallel ...[]string) { /* moved here, unchanged */ }
+```
+
+```go
+// used from family.go
+key := metricutil.SanitizeKey(label.Name)
+
+// used from resolver/cel.go, same function, no local copy
+sanitized := metricutil.SanitizeKey(k)
+```
+
+## 8. Open questions
 
 1. **Are `HasTimeout()` and `UnderscoreExpansionSupported()` actually
    consumed anywhere?** `IsKeySanitize()` has a clear, single call site in
